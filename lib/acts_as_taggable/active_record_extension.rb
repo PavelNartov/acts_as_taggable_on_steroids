@@ -139,7 +139,7 @@ module ActsAsTaggable #:nodoc:
         column_names.include?(cached_tag_list_column_name)
       end
       
-      protected
+      #protected
         def joins_tags(options = {}) # :nodoc:
           options[:suffix] = "_#{options[:suffix]}" if options[:suffix]
           
