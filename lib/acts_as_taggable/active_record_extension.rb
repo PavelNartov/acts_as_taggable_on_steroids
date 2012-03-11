@@ -15,7 +15,7 @@ module ActsAsTaggable #:nodoc:
         before_save :save_cached_tag_list
         after_save  :save_tags
         
-        include ActsAsTaggable::ActiveRecordExtension::InstanceMethods
+        #include ActsAsTaggable::ActiveRecordExtension::InstanceMethods
         extend ActsAsTaggable::ActiveRecordExtension::SingletonMethods
         
         alias_method_chain :reload, :tag_list
@@ -188,58 +188,56 @@ module ActsAsTaggable #:nodoc:
         end
     end
     
-    module InstanceMethods
-      def tag_list
-        return @tag_list if @tag_list
+    def tag_list
+      return @tag_list if @tag_list
+      
+      if self.class.caching_tag_list? and !(cached_value = send(self.class.cached_tag_list_column_name)).nil?
+        @tag_list = TagList.from(cached_value)
+      else
+        @tag_list = TagList.new(*tags.map(&:name))
+      end
+    end
+    
+    def tag_list=(value)
+      @tag_list = TagList.from(value)
+    end
+    
+    def save_cached_tag_list
+      if self.class.caching_tag_list?
+        self[self.class.cached_tag_list_column_name] = tag_list.to_s
+      end
+    end
+    
+    def save_tags
+      return unless @tag_list
+      
+      new_tag_names = @tag_list - tags.map(&:name)
+      old_tags = tags.reject { |tag| @tag_list.include?(tag.name) }
+      
+      self.class.transaction do
+        if old_tags.any?
+          taggings.where(:tag_id => old_tags.map(&:id)).each(&:destroy)
+          taggings.reset
+        end
         
-        if self.class.caching_tag_list? and !(cached_value = send(self.class.cached_tag_list_column_name)).nil?
-          @tag_list = TagList.from(cached_value)
-        else
-          @tag_list = TagList.new(*tags.map(&:name))
+        new_tag_names.each do |new_tag_name|
+          tags << Tag.find_or_create_with_like_by_name(new_tag_name)
         end
       end
       
-      def tag_list=(value)
-        @tag_list = TagList.from(value)
-      end
-      
-      def save_cached_tag_list
-        if self.class.caching_tag_list?
-          self[self.class.cached_tag_list_column_name] = tag_list.to_s
-        end
-      end
-      
-      def save_tags
-        return unless @tag_list
-        
-        new_tag_names = @tag_list - tags.map(&:name)
-        old_tags = tags.reject { |tag| @tag_list.include?(tag.name) }
-        
-        self.class.transaction do
-          if old_tags.any?
-            taggings.where(:tag_id => old_tags.map(&:id)).each(&:destroy)
-            taggings.reset
-          end
-          
-          new_tag_names.each do |new_tag_name|
-            tags << Tag.find_or_create_with_like_by_name(new_tag_name)
-          end
-        end
-        
-        true
-      end
-      
-      # Calculate the tag counts for the tags used by this model.
-      # See <tt>Tag.counts</tt> for available options.
-      def tag_counts(options = {})
-        return [] if tag_list.blank?
-        self.class.tag_counts(options.merge(:tags => tag_list))
-      end
-      
-      def reload_with_tag_list(*args) #:nodoc:
-        @tag_list = nil
-        reload_without_tag_list(*args)
-      end
+      true
+    end
+    
+    # Calculate the tag counts for the tags used by this model.
+    # See <tt>Tag.counts</tt> for available options.
+    def tag_counts(options = {})
+      return [] if tag_list.blank?
+      self.class.tag_counts(options.merge(:tags => tag_list))
+    end
+    
+    def reload_with_tag_list(*args) #:nodoc:
+      @tag_list = nil
+      reload_without_tag_list(*args)
     end
   end
 end

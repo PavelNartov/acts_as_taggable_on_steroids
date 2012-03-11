@@ -1,3 +1,13 @@
+[11 Mar 12]
+
+* Fixed deprecation warnings about ActiveSupport InstanceMethods and rdoc/task. [protolif]
+
+[01 Mar 12]
+
+* bumping the gemspec for rails 3.2. crossing my fingers. [protolif]
+
+* not using protection. just this once. it's probably fine. basically fine. [protolif]
+
 [11 Jun 09]
 
 * Remove deprecated TagCountsExtension.
